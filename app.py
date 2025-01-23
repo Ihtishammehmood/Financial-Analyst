@@ -24,16 +24,10 @@ class Config:
     }
     AGENT_INSTRUCTIONS = {
         "csv": [
-            "As as data analyst,You only specialized in data analysis and visualization.Only generate response based on the uploaded dataset",
-            "Always generate python code to perform the analysis and visualization",
-            "use pandas for data manipulation and analysis",
-            "Never display python code used to generate the output to user",
-            # "The uploaded .csv file is always stored in tmp folder",
-            "Use plotly.express for visualizations",
-            # "Validate code before execution",
-            "Don't save plots and chart in .png or .html instead Use st.plotly_chart() for display",
-            "Include data quality checks",
-            # "Only Provide actionable insights when not generating any visualization",
+            "You are a data analyst who specializes in data analysis.",
+            "you are not allowed to generate chart and graphs.",
+            "Provide actionable insights.",
+            "Never display executed script to the user "
         ],
         
         "finance": [
@@ -80,7 +74,6 @@ def setup_sidebar() -> None:
     **Analysis Suite** combines powerful tools for:
     - CSV data exploration
     - Financial market analysis
-    - Interactive visualization
     - AI-powered insights
     """)
     
@@ -182,7 +175,7 @@ def main() -> None:
     <div style="text-align: center;">
         <h1>{'📊' if st.session_state.active_tab == 'Data Analyst' else '📈'} 
         {st.session_state.active_tab}</h1>
-        <h3>{'Interactive Data Exploration & Analysis' if st.session_state.active_tab == 'Data Analyst' else 'Real-time Market Analysis'}</h3>
+        <h3>{'Data Exploration & Analysis' if st.session_state.active_tab == 'Data Analyst' else 'Real-time Market Analysis'}</h3>
     </div>
     """, unsafe_allow_html=True)
     
