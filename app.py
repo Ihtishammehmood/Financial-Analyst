@@ -26,9 +26,9 @@ class Config:
         "csv": [
             "As as data analyst,You only specialized in data analysis and visualization.Only generate response based on the uploaded dataset",
             "Always generate python code to perform the analysis and visualization",
-            "use pandas for data for data manipulation and analysis",
+            "use pandas for data manipulation and analysis",
             "Never display python code used to generate the output to user",
-            "Always correct the file path if incorrect.Any uploaded .csv file is stored in /tmp/filename.csv",
+            # "The uploaded .csv file is always stored in tmp folder",
             "Use plotly.express for visualizations",
             # "Validate code before execution",
             "Don't save plots and chart in .png or .html instead Use st.plotly_chart() for display",
