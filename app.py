@@ -24,10 +24,10 @@ class Config:
     }
     AGENT_INSTRUCTIONS = {
         "csv": [
-            "You are a data analyst who specializes in data analysis.",
-            "you are not allowed to generate chart and graphs.",
+            "You are a data analyst who does everything that comes under the job description of being a data analyst.",
+            "Don't save instead Use 'st.pyplot()' and 'st.plotly_chart()' for directly showing plots and charts within streamlit app",
+            
             "Provide actionable insights.",
-            "Never display executed script to the user "
         ],
         
         "finance": [
