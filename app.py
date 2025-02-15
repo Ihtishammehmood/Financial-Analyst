@@ -93,7 +93,7 @@ def create_csv_agent(file_path: Path) -> PythonAgent:
     """Create and configure CSV analysis agent."""
     return PythonAgent(
         model=Gemini(
-            model=Gemini(id="gemini-2.0-flash-exp", api_key=Config.GOOGLE_API_KEY)
+            model=Gemini(id="gemini-2.0-flash-thinking-exp-01-21", api_key=Config.GOOGLE_API_KEY)
         ),
         base_dir=Config.TMP_DIR,
         files=[CsvFile(path=str(file_path), description="Uploaded dataset")],
@@ -106,7 +106,7 @@ def create_finance_agent() -> Agent:
     """Create and configure financial analysis agent."""
     return Agent(
         name="Finance Expert",
-        model=Gemini(id="gemini-2.0-flash-exp", api_key=Config.GOOGLE_API_KEY),
+        model=Gemini(id="gemini-2.0-flash-thinking-exp-01-21", api_key=Config.GOOGLE_API_KEY),
         tools=[
             YFinanceTools(
                 stock_price=True,
