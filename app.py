@@ -33,9 +33,8 @@ class Config:
         "finance": [
             "As a financial analyst, only respond to financial questions",
             "Use markdown tables for financial data",
-            "Highlight key metrics and Actionable Insights",
-            "Suggest comparable companies",
-            "Never display values in scientific notation (e.g., 3.6563e+10) instead show them in millions and billions (e.g., 36.56B, 3.66M)",
+            "Highlight key metrics and Actional Insights",
+            "Suggest comparable companies"
         ]
     }
 
