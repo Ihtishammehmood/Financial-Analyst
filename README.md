@@ -1,5 +1,11 @@
 # Analysis Suite
 
+## See Video Here:
+[![Watch Video](https://github.com/user-attachments/assets/615520cc-68fc-4884-b9d2-e75ab7bcaa01)](https://youtu.be/O2GjHWSjN6Y)
+
+
+
+
 Analysis Suite is a Streamlit application designed for data exploration and financial market analysis. It combines powerful tools for CSV data analysis, financial market insights, and interactive visualizations, all powered by AI.
 
 ## Features
