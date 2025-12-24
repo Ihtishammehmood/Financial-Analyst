@@ -81,7 +81,7 @@ def setup_sidebar() -> None:
     st.sidebar.markdown("### Useful Links")
     links = {
         "GitHub Repository": "https://github.com/Ihtishammehmood/Financial-Analyst.git",
-        "Personal Portfolio": "https://ihtishammehmood.github.io/",
+        "Personal Portfolio": "https://ihtishammehmood.vercel.app/",
     }
     for text, url in links.items():
         st.sidebar.markdown(f"[{text}]({url})")
@@ -91,7 +91,7 @@ def create_csv_agent(file_path: Path) -> PythonAgent:
     """Create and configure CSV analysis agent."""
     return PythonAgent(
         model=Gemini(
-            model=Gemini(id="gemini-2.0-pro-exp-02-05", api_key=Config.GOOGLE_API_KEY)
+            model=Gemini(id="gemini-3-flash-preview", api_key=Config.GOOGLE_API_KEY)
         ),
         base_dir=Config.TMP_DIR,
         files=[CsvFile(path=str(file_path), description="Uploaded dataset")],
@@ -104,7 +104,7 @@ def create_finance_agent() -> Agent:
     """Create and configure financial analysis agent."""
     return Agent(
         name="Finance Expert",
-        model=Gemini(id="gemini-2.0-pro-exp-02-05", api_key=Config.GOOGLE_API_KEY),
+        model=Gemini(id="gemini-3-flash-preview", api_key=Config.GOOGLE_API_KEY),
         tools=[
             YFinanceTools(
                 stock_price=True,
