@@ -1,255 +1,277 @@
-
 import streamlit as st
-from pathlib import Path
+import os
+import base64
 import pandas as pd
-import shutil
-from phi.model.google import Gemini
-from phi.agent.python import PythonAgent
-from phi.agent import Agent
-from phi.tools.yfinance import YFinanceTools
-from phi.file.local.csv import CsvFile
-from typing import Optional, Dict, List
-from Custom_tools import get_profit_and_loss, balance_sheet, cash_flow
+import google.generativeai as genai
 
-# Constants and Configuration
-class Config:
-    GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
-    CWD = Path(__file__).parent.resolve()
-    TMP_DIR = CWD / "tmp"
-    PAGE_CONFIG = {
-        "page_title": "Analysis Suite",
-        "page_icon": ":bar_chart:",
-        "layout": "wide",
-        "initial_sidebar_state": "expanded"
-    }
-    AGENT_INSTRUCTIONS = {
-        "csv": [
-            "You are a data analyst who does everything that comes under the job description of being a data analyst.",
-            "Don't save instead Use 'st.pyplot()' and 'st.plotly_chart()' for directly showing plots and charts within streamlit app",
-            
-            "Provide actionable insights.",
-        ],
-        
-        "finance": [
-            "As a financial analyst, only respond to financial questions",
-            "Use markdown tables for financial data",
-            "Highlight key metrics and Actional Insights",
-            "Suggest comparable companies"
-        ]
-    }
+from dotenv import load_dotenv
+from e2b_code_interpreter import Sandbox
+# import io
 
-# Utility Functions
-def manage_temp_directory() -> None:
-    """Manage temporary directory with cleanup and recreation."""
+
+# --- Configuration & Setup ---
+st.set_page_config(
+    page_title="Data Analyst AI",
+    page_icon="📊",
+    layout="wide"
+)
+
+# Load environment variables (support for .env file or st.secrets)
+load_dotenv()
+
+# Helper to get API keys safely
+def get_api_key(key_name):
+    if key_name in st.secrets:
+        return st.secrets[key_name]
+    return os.getenv(key_name)
+
+GEMINI_API_KEY = get_api_key("GEMINI_API_KEY")
+E2B_API_KEY = get_api_key("E2B_API_KEY")
+
+if not GEMINI_API_KEY or not E2B_API_KEY:
+    st.error("🚨 API Keys missing! Please set GEMINI_API_KEY and E2B_API_KEY in your .env file or Streamlit secrets.")
+    st.stop()
+
+genai.configure(api_key=GEMINI_API_KEY)
+
+# --- Session State Initialization ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "sandbox" not in st.session_state:
+    # We store the sandbox object in session state to persist it across reruns
     try:
-        if Config.TMP_DIR.exists():
-            shutil.rmtree(Config.TMP_DIR)
-        Config.TMP_DIR.mkdir(exist_ok=True, parents=True)
-    except OSError as e:
-        st.error(f"Directory management error: {str(e)}")
-        raise
-
-def initialize_session_state() -> None:
-    """Initialize all session state variables."""
-    session_defaults = {
-        "csv_file_uploaded": False,
-        "csv_messages": [],
-        "finance_messages": [],
-        "active_tab": "Data Analyst"
-    }
-    for key, value in session_defaults.items():
-        st.session_state.setdefault(key, value)
-
-def setup_sidebar() -> None:
-    """Configure the sidebar navigation and information."""
-    st.sidebar.title("Navigation")
-    st.session_state.active_tab = st.sidebar.radio(
-        "Select Analyst", 
-        ["Data Analyst", "Financial Analyst"]
-    )
-    
-    st.sidebar.markdown("---")
-    st.sidebar.title("About This Suite")
-    st.sidebar.markdown("""
-    **Analysis Suite** combines powerful tools for:
-    - CSV data exploration
-    - Financial market analysis
-    - AI-powered insights
-    """)
-    
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### Useful Links")
-    links = {
-        "GitHub Repository": "https://github.com/Ihtishammehmood/Financial-Analyst.git",
-        "Personal Portfolio": "https://ihtishammehmood.vercel.app/",
-    }
-    for text, url in links.items():
-        st.sidebar.markdown(f"[{text}]({url})")
-
-# Agent Management
-def create_csv_agent(file_path: Path) -> PythonAgent:
-    """Create and configure CSV analysis agent."""
-    return PythonAgent(
-        model=Gemini(
-            model=Gemini(id="gemini-3-flash-preview", api_key=Config.GOOGLE_API_KEY)
-        ),
-        base_dir=Config.TMP_DIR,
-        files=[CsvFile(path=str(file_path), description="Uploaded dataset")],
-        instructions=Config.AGENT_INSTRUCTIONS["csv"],
-        pip_install=True,
-        markdown=True
-    )
-
-def create_finance_agent() -> Agent:
-    """Create and configure financial analysis agent."""
-    return Agent(
-        name="Finance Expert",
-        model=Gemini(id="gemini-3-flash-preview", api_key=Config.GOOGLE_API_KEY),
-        tools=[
-            YFinanceTools(
-                stock_price=True,
-                analyst_recommendations=True,
-                company_info=True,
-                company_news=True
-            ),
-            get_profit_and_loss,
-            balance_sheet,
-            cash_flow
-        ],
-        instructions=Config.AGENT_INSTRUCTIONS["finance"],
-        markdown=True
-    )
-
-# Chat Handlers
-def handle_chat_interface(
-    agent: Agent,
-    session_key: str,
-    empty_state_message: str
-) -> None:
-    """Generic handler for chat interfaces."""
-    messages = st.session_state.get(session_key, [])
-    
-    if not messages:
-        st.info(empty_state_message)
-    
-    for message in messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    if prompt := st.chat_input("Type your question..."):
-        messages.append({"role": "user", "content": prompt})
-        
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            try:
-                response_container = st.empty()
-                full_response = ""
-                
-                with st.spinner('Analyzing...'):
-                    for delta in agent.run(prompt, stream=True):
-                        full_response += delta.content
-                        response_container.markdown(full_response + "▌")
-                    
-                    response_container.markdown(full_response)
-                    messages.append({"role": "assistant", "content": full_response})
-                    st.session_state[session_key] = messages
-                    
-            except Exception as e:
-                st.error(f"Analysis error: {str(e)}")
-                messages.pop()  # Remove failed prompt
-
-# Main Application
-def main() -> None:
-    """Main application entry point."""
-    st.set_page_config(**Config.PAGE_CONFIG)
-    initialize_session_state()
-    manage_temp_directory()
-    setup_sidebar()
-    
-    # Header Section
-    st.markdown(f"""
-    <div style="text-align: center;">
-        <h1>{'📊' if st.session_state.active_tab == 'Data Analyst' else '📈'} 
-        {st.session_state.active_tab}</h1>
-        <h3>{'Data Exploration & Analysis' if st.session_state.active_tab == 'Data Analyst' else 'Real-time Market Analysis'}</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Tab-Specific Logic
-    if st.session_state.active_tab == "Data Analyst":
-        handle_data_analyst_tab()
-    else:
-        handle_financial_analyst_tab()
-    
-    # Footer Section
-    # st.markdown("---")
-    # st.markdown("📈 **Real-time Data** | 🤖 **AI-Powered Insights**")
-    st.markdown("---")
-    st.caption("Author: Ihtisham M | [LinkedIn](https://www.linkedin.com/in/ihtishammehmood)")
-
-def handle_data_analyst_tab() -> None:
-    """Handle CSV data analysis tab."""
-    uploaded_file = st.file_uploader(
-        "Upload CSV File", 
-        type=["csv"],
-        help="Maximum file size: 200MB"
-    )
-    
-    if uploaded_file:
-        process_uploaded_file(uploaded_file)
-        
-        if st.session_state.csv_file_uploaded:
-            if "csv_agent" not in st.session_state:
-                st.session_state.csv_agent = create_csv_agent(
-                    st.session_state.csv_file_path
-                )
-            
-            st.divider()
-            handle_chat_interface(
-                agent=st.session_state.csv_agent,
-                session_key="csv_messages",
-                empty_state_message="Ask questions about your CSV data to get started"
-            )
-
-def process_uploaded_file(uploaded_file) -> None:
-    """Process and validate uploaded CSV file."""
-    try:
-        file_path = Config.TMP_DIR / uploaded_file.name
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        
-        # Validate CSV
-        df = pd.read_csv(file_path)
-        if df.empty:
-            st.error("Uploaded file is empty")
-            return
-        
-        st.session_state.csv_file_uploaded = True
-        st.session_state.csv_file_path = file_path
-        
-        with st.expander("Dataset Preview"):
-            st.dataframe(df.head(10), use_container_width=True)
-            st.caption(f"Dataset Shape: {df.shape} | Columns: {', '.join(df.columns)}")
-            
-    except pd.errors.ParserError:
-        st.error("Invalid CSV file format")
+        st.session_state.sandbox = Sandbox.create(api_key=E2B_API_KEY)
     except Exception as e:
-        st.error(f"File processing error: {str(e)}")
+        st.error(f"Failed to create sandbox: {e}")
+        st.stop()
 
-def handle_financial_analyst_tab() -> None:
-    """Handle financial analysis tab."""
-    if "finance_agent" not in st.session_state:
-        st.session_state.finance_agent = create_finance_agent()
+if "dataset_info" not in st.session_state:
+    st.session_state.dataset_info = None
+
+# --- Helper Functions ---
+
+def upload_to_sandbox(uploaded_file):
+    """Uploads the Streamlit file object to the E2B sandbox."""
+    try:
+        # Read file as bytes
+        file_bytes = uploaded_file.getvalue()
+        
+        # Save to sandbox
+        remote_path = st.session_state.sandbox.files.write("dataset.csv", file_bytes)
+        
+        # Extract metadata (columns, etc) for the prompt context
+        df = pd.read_csv(uploaded_file)
+        columns = list(df.columns)
+        head = df.head(3).to_markdown(index=False)
+        
+        info = {
+            "path": remote_path,
+            "columns": columns,
+            "preview": head,
+            "rows": len(df)
+        }
+        st.session_state.dataset_info = info
+        return info
+    except Exception as e:
+        st.error(f"Error uploading file to sandbox: {e}")
+        return None
+
+def run_code_in_sandbox(code):
+    """Executes Python code in the E2B sandbox and processes results."""
+    sbx = st.session_state.sandbox
     
-    st.divider()
-    handle_chat_interface(
-        agent=st.session_state.finance_agent,
-        session_key="finance_messages",
-        empty_state_message="Ask about stocks, companies, or market trends"
-    )
+    try:
+        execution = sbx.run_code(code)
+    except Exception as e:
+        return {"error": str(e), "text_output": "", "images": []}
 
-# Run the application
-if __name__ == "__main__":
-    main()
+    if execution.error:
+        error_msg = f"{execution.error.name}: {execution.error.value}\n{execution.error.traceback}"
+        return {"error": error_msg, "text_output": "", "images": []}
+
+    images = []
+    for result in execution.results:
+        if result.png:
+            # Decode base64 image
+            img_data = base64.b64decode(result.png)
+            images.append(img_data)
+    
+    # Capture standard output (print statements)
+    text_output = "".join(execution.logs.stdout)
+    
+    return {"error": None, "text_output": text_output, "images": images}
+
+def generate_response(user_query, dataset_info):
+    """Interacts with Gemini to generate code or text."""
+    
+    # 1. Define Tools
+    tools = [
+        {
+            "function_declarations": [
+                {
+                    "name": "run_python_code",
+                    "description": "Executes Python code to analyze data or generate charts. Use matplotlib/seaborn for plots. The dataset is at 'dataset.csv'.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "description": "The Python code to run."
+                            }
+                        },
+                        "required": ["code"],
+                    },
+                }
+            ]
+        }
+    ]
+
+    # 2. Construct Prompt
+    system_context = f"""
+    You are an expert Python Data Analyst.
+    A CSV file is loaded in the environment at path: '{dataset_info['path']}'.
+    It has {dataset_info['rows']} rows.
+    
+    Here is a preview of the data:
+    {dataset_info['preview']}
+    
+    Columns: {', '.join(dataset_info['columns'])}
+
+    When asked to visualize, use Matplotlib or Seaborn. 
+    ALWAYS save charts using `plt.show()` (the environment captures this) or print textual analysis.
+    Do NOT open files using `os.startfile` or `plt.savefig` unless asked.
+    
+    If the user's request requires code, call the `run_python_code` function.
+    If it's a general question, just answer.
+    """
+    
+    model = genai.GenerativeModel("gemini-3-flash-preview", tools=tools, system_instruction=system_context)
+    
+    chat = model.start_chat(enable_automatic_function_calling=False) # We handle execution manually
+    
+    try:
+        response = chat.send_message(user_query)
+        return response
+    except Exception as e:
+        return f"Error communicating with AI: {e}"
+
+# --- UI Layout ---
+
+st.sidebar.title("📁 Data Setup")
+uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
+
+if st.sidebar.button("Clear Chat"):
+    st.session_state.messages = []
+    st.rerun()
+
+# --- Main Logic ---
+
+st.title("Data Analysis Suite")
+st.markdown("Here to help you with data analysis and visualization.")
+
+# Handle File Upload
+if uploaded_file:
+    # Check if this is a new file or if we haven't processed it yet
+    current_file_name = uploaded_file.name
+    if (st.session_state.dataset_info is None) or (st.session_state.get("last_uploaded") != current_file_name):
+        with st.spinner("Uploading and analyzing dataset..."):
+            info = upload_to_sandbox(uploaded_file)
+            if info:
+                st.session_state.last_uploaded = current_file_name
+                st.sidebar.success(f"Loaded: {current_file_name}")
+                # Add a system message indicating success
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": f"I've loaded **{current_file_name}**. It has {info['rows']} rows. How can I help you?"
+                })
+    else:
+        st.sidebar.info(f"Active: {current_file_name}")
+
+else:
+    st.info("Please upload a CSV file in the sidebar to begin.")
+    st.stop()
+
+
+# Display Chat History
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        if "content" in msg and msg["content"]:
+            st.markdown(msg["content"])
+        if "images" in msg:
+            for img in msg["images"]:
+                st.image(img)
+        if "code" in msg:
+            with st.expander("View Code"):
+                st.code(msg["code"], language="python")
+
+# Chat Input
+if prompt := st.chat_input("Ask a question about your data (e.g., 'Plot vote_average over time')"):
+    
+    # 1. Add User Message
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # 2. Process with AI
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            response = generate_response(prompt, st.session_state.dataset_info)
+            
+            # Check for function call
+            function_call = None
+            if hasattr(response, 'parts'):
+                for part in response.parts:
+                    if part.function_call:
+                        function_call = part.function_call
+                        break
+            
+            if function_call and function_call.name == "run_python_code":
+                code_to_run = function_call.args["code"]
+                
+                # Show status
+                message_placeholder = st.empty()
+                message_placeholder.markdown("⚙️ *Generating and running code...*")
+                
+                # Execute Code
+                result = run_code_in_sandbox(code_to_run)
+                
+                message_placeholder.empty() # Clear status
+                
+                # Prepare response content
+                response_content = ""
+                
+                if result["error"]:
+                    response_content = f"**Error executing code:**\n```\n{result['error']}\n```"
+                else:
+                    if result["text_output"]:
+                        response_content += f"**Output:**\n```\n{result['text_output']}\n```\n"
+                
+                # Update Session State
+                assistant_message = {
+                    "role": "assistant",
+                    "content": response_content,
+                    "code": code_to_run,
+                    "images": result["images"]
+                }
+                
+                # Display Immediately
+                if response_content:
+                    st.markdown(response_content)
+                
+                if result["images"]:
+                    for img in result["images"]:
+                        st.image(img)
+                    if not response_content:
+                        st.markdown("*Chart generated successfully.*")
+
+                with st.expander("View Code"):
+                    st.code(code_to_run, language="python")
+                
+                st.session_state.messages.append(assistant_message)
+                
+            else:
+                # Text-only response
+                text_response = response.text if hasattr(response, 'text') else "I couldn't generate a response."
+                st.markdown(text_response)
+                st.session_state.messages.append({"role": "assistant", "content": text_response})

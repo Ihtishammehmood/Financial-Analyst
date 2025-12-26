@@ -1,3 +1,14 @@
-.streamlit/secrets.toml
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
 .venv
-multi_agent.py
+.env
+
+.streamlit/secrets.toml
+
+run_analysis.py
