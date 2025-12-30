@@ -11,10 +11,11 @@ from e2b_code_interpreter import Sandbox
 
 # --- Configuration & Setup ---
 st.set_page_config(
-    page_title="Data Analyst AI",
-    page_icon="📊",
+    page_title="AI Data Analyst",
+    page_icon="📈",
     layout="wide"
 )
+
 
 # Load environment variables (support for .env file or st.secrets)
 load_dotenv()
@@ -165,6 +166,32 @@ if st.sidebar.button("Clear Chat"):
     st.session_state.messages = []
     st.rerun()
 
+# --- Sidebar Instructions ---
+
+st.sidebar.markdown("""
+## Data Analyst Assistant
+
+- Upload a **CSV file**
+- Ask questions in **plain English**
+- Automatic **EDA, statistics, and visualizations**
+- No coding required
+
+---
+
+### How It Works
+- Your query → Python code
+- Code runs in a **secure E2B sandbox**
+- Results render instantly (tables, charts)
+
+
+---
+
+### 🌐 About Me
+- 🌍 Website: [Portfolio](https://ihtishammehmood.vercel.app/)
+- 💼 LinkedIn: [Ihtisham M.](https://www.linkedin.com/in/ihtishammehmood/)
+""")
+
+
 # --- Main Logic ---
 
 st.title("Data Analysis Suite")
@@ -275,3 +302,5 @@ if prompt := st.chat_input("Ask a question about your data (e.g., 'Plot vote_ave
                 text_response = response.text if hasattr(response, 'text') else "I couldn't generate a response."
                 st.markdown(text_response)
                 st.session_state.messages.append({"role": "assistant", "content": text_response})
+                
+            
